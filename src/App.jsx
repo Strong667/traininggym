@@ -1,6 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { AppProvider } from './context/AppContext';
 import NavBar from './components/NavBar';
+import ProfileSelect from './pages/ProfileSelect';
 import Today from './pages/Today';
 import Library from './pages/Library';
 import ExerciseDetail from './pages/ExerciseDetail';
@@ -8,7 +10,13 @@ import Stats from './pages/Stats';
 import AIPlan from './pages/AIPlan';
 import Settings from './pages/Settings';
 
-export default function App() {
+function AppInner() {
+  const { activeProfileId } = useAuth();
+
+  if (!activeProfileId) {
+    return <ProfileSelect />;
+  }
+
   return (
     <AppProvider>
       <BrowserRouter>
@@ -26,5 +34,13 @@ export default function App() {
         </div>
       </BrowserRouter>
     </AppProvider>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppInner />
+    </AuthProvider>
   );
 }
