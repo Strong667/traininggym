@@ -18,15 +18,15 @@ export function ProfileAvatar({ profile, size = 48, textSize = 'text-xl' }) {
 // ── PIN dots indicator ────────────────────────────────────────
 function PinDots({ length, error }) {
   return (
-    <div className="flex gap-4 justify-center">
+    <div className="flex gap-5 justify-center">
       {[0, 1, 2, 3].map(i => (
         <div
           key={i}
-          className={`w-4 h-4 rounded-full border-2 transition-all ${
+          className={`w-5 h-5 rounded-full border-2 transition-all duration-150 ${
             error
-              ? 'border-red-500 bg-red-500'
+              ? 'border-red-400 bg-red-400 scale-110'
               : i < length
-              ? 'border-white bg-white'
+              ? 'border-white bg-white scale-110'
               : 'border-gray-500 bg-transparent'
           }`}
         />
@@ -39,25 +39,25 @@ function PinDots({ length, error }) {
 function Keypad({ onDigit, onDelete }) {
   const keys = ['1','2','3','4','5','6','7','8','9','','0','del'];
   return (
-    <div className="grid grid-cols-3 gap-3 w-full max-w-[260px]">
+    <div className="grid grid-cols-3 gap-3 w-full px-2">
       {keys.map((k, i) => {
         if (k === '') return <div key={i} />;
         if (k === 'del') return (
           <button
             key={i}
             onClick={onDelete}
-            className="h-16 flex items-center justify-center rounded-2xl bg-gray-800 text-white active:scale-95 transition-transform"
+            className="aspect-square flex items-center justify-center rounded-full text-white active:bg-gray-700 active:scale-90 transition-all select-none"
           >
-            <Delete size={22} />
+            <Delete size={26} />
           </button>
         );
         return (
           <button
             key={k}
             onClick={() => onDigit(k)}
-            className="h-16 text-2xl font-semibold text-white bg-gray-800 hover:bg-gray-700 active:scale-95 rounded-2xl transition-all"
+            className="aspect-square flex flex-col items-center justify-center rounded-full bg-gray-800 hover:bg-gray-700 active:bg-gray-600 active:scale-90 transition-all select-none"
           >
-            {k}
+            <span className="text-3xl font-light text-white leading-none">{k}</span>
           </button>
         );
       })}
@@ -90,19 +90,31 @@ function PinScreen({ profile, onBack }) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 flex flex-col items-center px-6 pt-12">
-      <button onClick={onBack} className="self-start text-gray-400 hover:text-white mb-8 flex items-center gap-1">
-        <ArrowLeft size={20} /> Назад
-      </button>
+    <div className="min-h-screen bg-gray-950 flex flex-col">
+      {/* Back */}
+      <div className="px-5 pt-14 pb-2">
+        <button onClick={onBack} className="flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors text-sm">
+          <ArrowLeft size={18} /> Назад
+        </button>
+      </div>
 
-      <ProfileAvatar profile={profile} size={72} textSize="text-3xl" />
-      <p className="text-white text-xl font-semibold mt-4 mb-2">{profile.name}</p>
-      <p className="text-gray-400 text-sm mb-10">Введите PIN-код</p>
+      {/* Profile info — centered in top half */}
+      <div className="flex-1 flex flex-col items-center justify-center gap-4 pb-4">
+        <ProfileAvatar profile={profile} size={88} textSize="text-4xl" />
+        <div className="text-center">
+          <p className="text-white text-2xl font-semibold">{profile.name}</p>
+          <p className="text-gray-500 text-sm mt-1">Введите PIN-код</p>
+        </div>
+        <div className="mt-4">
+          <PinDots length={pin.length} error={error} />
+          <div className="h-7 flex items-center justify-center mt-3">
+            {error && <p className="text-red-400 text-sm animate-pulse">Неверный PIN-код</p>}
+          </div>
+        </div>
+      </div>
 
-      <PinDots length={pin.length} error={error} />
-      {error && <p className="text-red-400 text-sm mt-3">Неверный PIN</p>}
-
-      <div className="mt-8">
+      {/* Keypad — anchored to bottom */}
+      <div className="px-8 pb-14 max-w-sm w-full mx-auto">
         <Keypad onDigit={handleDigit} onDelete={handleDelete} />
       </div>
     </div>
@@ -134,31 +146,33 @@ function CreateScreen({ onBack, onCreated }) {
 
   if (step === 'pin') {
     return (
-      <div className="min-h-screen bg-gray-950 flex flex-col items-center px-6 pt-12">
-        <button onClick={() => { setStep('info'); setPin(''); }} className="self-start text-gray-400 hover:text-white mb-8 flex items-center gap-1">
-          <ArrowLeft size={20} /> Назад
-        </button>
-
-        <div
-          className="w-18 h-18 rounded-full flex items-center justify-center text-3xl mb-4"
-          style={{ width: 72, height: 72, backgroundColor: color }}
-        >
-          {emoji}
+      <div className="min-h-screen bg-gray-950 flex flex-col">
+        <div className="px-5 pt-14 pb-2">
+          <button onClick={() => { setStep('info'); setPin(''); }} className="flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors text-sm">
+            <ArrowLeft size={18} /> Назад
+          </button>
         </div>
-        <p className="text-white text-xl font-semibold mb-1">{name || 'Профиль'}</p>
-        <p className="text-gray-400 text-sm mb-10">Придумайте PIN-код (или пропустите)</p>
 
-        <PinDots length={pin.length} error={false} />
+        <div className="flex-1 flex flex-col items-center justify-center gap-4 pb-4">
+          <div className="rounded-full flex items-center justify-center text-4xl" style={{ width: 88, height: 88, backgroundColor: color }}>
+            {emoji}
+          </div>
+          <div className="text-center">
+            <p className="text-white text-2xl font-semibold">{name || 'Профиль'}</p>
+            <p className="text-gray-500 text-sm mt-1">Придумайте PIN-код (необязательно)</p>
+          </div>
+          <div className="mt-4">
+            <PinDots length={pin.length} error={false} />
+            <div className="h-7" />
+          </div>
+        </div>
 
-        <div className="mt-8">
+        <div className="px-8 pb-6 max-w-sm w-full mx-auto space-y-4">
           <Keypad onDigit={handlePinDigit} onDelete={() => setPin(p => p.slice(0, -1))} />
-        </div>
-
-        <div className="mt-8 w-full max-w-[260px] space-y-3">
           <button
             onClick={handleCreate}
             disabled={pin.length > 0 && pin.length < 4}
-            className="w-full py-3.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-40 text-white font-semibold rounded-2xl transition-colors"
+            className="w-full py-4 bg-orange-500 hover:bg-orange-600 disabled:opacity-40 text-white font-semibold rounded-2xl transition-colors text-base"
           >
             {pin.length === 4 ? 'Создать с PIN' : 'Создать без PIN'}
           </button>
@@ -287,16 +301,28 @@ function AdminAccess({ onBack }) {
   const currentPin = step === 'confirm' ? confirm : pin;
 
   return (
-    <div className="min-h-screen bg-gray-950 flex flex-col items-center px-6 pt-12">
-      <button onClick={onBack} className="self-start text-gray-400 hover:text-white mb-8 flex items-center gap-1">
-        <ArrowLeft size={20} /> Назад
-      </button>
-      <ShieldCheck size={48} className="text-orange-500 mb-4" />
-      <p className="text-white text-xl font-semibold mb-2">{title}</p>
-      {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
-      {!error && <div className="h-5 mb-4" />}
-      <PinDots length={currentPin.length} error={!!error} />
-      <div className="mt-8">
+    <div className="min-h-screen bg-gray-950 flex flex-col">
+      <div className="px-5 pt-14 pb-2">
+        <button onClick={onBack} className="flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors text-sm">
+          <ArrowLeft size={18} /> Назад
+        </button>
+      </div>
+
+      <div className="flex-1 flex flex-col items-center justify-center gap-4 pb-4">
+        <ShieldCheck size={64} className="text-orange-500" />
+        <div className="text-center">
+          <p className="text-white text-2xl font-semibold">{title}</p>
+          {step === 'setup' && <p className="text-gray-500 text-sm mt-1">Этот PIN защищает панель управления</p>}
+        </div>
+        <div className="mt-4">
+          <PinDots length={currentPin.length} error={!!error} />
+          <div className="h-7 flex items-center justify-center mt-3">
+            {error && <p className="text-red-400 text-sm">{error}</p>}
+          </div>
+        </div>
+      </div>
+
+      <div className="px-8 pb-14 max-w-sm w-full mx-auto">
         <Keypad
           onDigit={handleDigit}
           onDelete={() => {
