@@ -9,32 +9,88 @@ import { useAdmin } from '../context/AdminContext';
 import { ProfileAvatar } from './ProfileSelect';
 import { exercises as builtinExercises, MUSCLE_GROUPS, EQUIPMENT_LABELS } from '../data/exercises';
 
-// ── AscendAPI bodyPart → Russian ──────────────────────────────
+// ── AscendAPI mappings ────────────────────────────────────────
 const BODY_RU = {
-  'chest':       'Грудь',
-  'back':        'Спина',
-  'shoulders':   'Плечи',
-  'upper arms':  'Руки',
-  'upper legs':  'Ноги',
-  'lower legs':  'Голень',
-  'waist':       'Пресс',
-  'cardio':      'Кардио',
-  'neck':        'Шея',
-  'lower arms':  'Предплечья',
+  'chest': 'Грудь', 'back': 'Спина', 'shoulders': 'Плечи',
+  'upper arms': 'Руки', 'upper legs': 'Ноги', 'lower legs': 'Голень',
+  'waist': 'Пресс', 'cardio': 'Кардио', 'neck': 'Шея', 'lower arms': 'Предплечья',
 };
 
-// Set of all built-in nameEn values (normalised) for deduplication
+const BP_TO_MUSCLE = {
+  'chest': 'chest', 'back': 'back', 'shoulders': 'shoulders',
+  'upper arms': 'biceps', 'upper legs': 'legs', 'lower legs': 'legs',
+  'waist': 'abs', 'cardio': 'cardio', 'neck': 'back', 'lower arms': 'biceps',
+};
+
+const EQUIP_MAP = {
+  'body weight': 'none', 'band': 'none', 'resistance band': 'none', 'rope': 'none',
+  'dumbbell': 'dumbbells', 'kettlebell': 'dumbbells',
+  'barbell': 'gym', 'cable': 'gym', 'machine': 'gym', 'leverage machine': 'gym',
+  'smith machine': 'gym', 'olympic barbell': 'gym', 'weighted': 'gym',
+};
+
 const BUILTIN_NAMES = new Set(builtinExercises.map(e => e.nameEn.toLowerCase().trim()));
 
-// ── Exercise name search dropdown ─────────────────────────────
-function ExerciseNamePicker({ value, onChange }) {
-  const [query, setQuery]     = useState(value || '');
-  const [results, setResults] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [open, setOpen]       = useState(false);
-  const wrapRef = useRef(null);
+// ── AI auto-fill helper ───────────────────────────────────────
+function getAdminAiKey() {
+  return localStorage.getItem('wd_admin_ai_key') || '';
+}
 
-  // Close on outside click
+function detectAiProvider(key) {
+  if (key.startsWith('sk-ant-')) return 'claude';
+  if (key.startsWith('sk-or-'))  return 'openrouter';
+  if (key.startsWith('AIza'))    return 'gemini';
+  return 'openai'; // covers sk- (OpenAI) and sk- (DeepSeek) — same endpoint format
+}
+
+async function callAiForTranslation(ex, key) {
+  const prompt = `Ты фитнес-тренер. Переведи и адаптируй данные упражнения на русский язык.
+Упражнение (англ): "${ex.name}"
+Группа мышц: "${ex.bodyParts?.[0] || ''}"
+Инструкции (англ): ${(ex.instructions || []).join(' | ')}
+
+Ответь ТОЛЬКО в JSON без пояснений:
+{"name":"Русское название","description":"Описание техники (2-3 предложения)","tips":["Совет 1","Совет 2","Совет 3"]}`;
+
+  const provider = detectAiProvider(key);
+
+  let res;
+  if (provider === 'claude') {
+    res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 512, messages: [{ role: 'user', content: prompt }] }),
+    });
+    const d = await res.json();
+    return d.content?.[0]?.text || '';
+  }
+  // OpenAI-compatible (OpenAI, DeepSeek, OpenRouter)
+  const baseUrl = provider === 'openrouter' ? 'https://openrouter.ai/api' : 'https://api.deepseek.com';
+  const model   = provider === 'openrouter' ? 'openai/gpt-4o-mini' : 'deepseek-chat';
+  // Try DeepSeek first, fall back to OpenAI endpoint
+  const url = key.startsWith('sk-') && !key.startsWith('sk-or-') && !key.startsWith('sk-ant-')
+    ? 'https://api.deepseek.com/v1/chat/completions'
+    : `${baseUrl}/v1/chat/completions`;
+
+  res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+    body: JSON.stringify({ model, max_tokens: 512, messages: [{ role: 'user', content: prompt }] }),
+  });
+  const d = await res.json();
+  return d.choices?.[0]?.message?.content || '';
+}
+
+// ── Exercise name search dropdown ─────────────────────────────
+// onChange receives full AscendAPI exercise object
+function ExerciseNamePicker({ value, onChange }) {
+  const [query, setQuery]         = useState(value || '');
+  const [results, setResults]     = useState([]);
+  const [loading, setLoading]     = useState(false);
+  const [open, setOpen]           = useState(false);
+  const wrapRef        = useRef(null);
+  const justSelected   = useRef(false); // prevents re-search after selection
+
   useEffect(() => {
     function handler(e) {
       if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
@@ -43,19 +99,19 @@ function ExerciseNamePicker({ value, onChange }) {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // Debounced search
   useEffect(() => {
-    if (query.length < 2) { setResults([]); return; }
+    // Skip search immediately after a selection
+    if (justSelected.current) { justSelected.current = false; return; }
+    if (query.length < 2) { setResults([]); setOpen(false); return; }
+
     const timer = setTimeout(async () => {
       setLoading(true);
       try {
         const res  = await fetch(`https://oss.exercisedb.dev/api/v1/exercises?name=${encodeURIComponent(query)}&limit=25`);
         const json = await res.json();
-        const all  = json.data || [];
-        // Filter out exercises already in built-in list
-        const filtered = all.filter(e => !BUILTIN_NAMES.has(e.name.toLowerCase().trim()));
+        const filtered = (json.data || []).filter(e => !BUILTIN_NAMES.has(e.name.toLowerCase().trim()));
         setResults(filtered);
-        setOpen(true);
+        setOpen(filtered.length > 0);
       } catch {
         setResults([]);
       }
@@ -65,11 +121,11 @@ function ExerciseNamePicker({ value, onChange }) {
   }, [query]);
 
   function select(ex) {
-    const name = ex.name;
-    setQuery(name);
-    onChange(name);
+    justSelected.current = true;  // ← prevents re-search
+    setQuery(ex.name);
     setOpen(false);
     setResults([]);
+    onChange(ex);  // pass FULL object to parent
   }
 
   return (
@@ -78,9 +134,8 @@ function ExerciseNamePicker({ value, onChange }) {
         <input
           type="text"
           value={query}
-          onChange={e => { setQuery(e.target.value); onChange(''); }}
-          onFocus={() => results.length > 0 && setOpen(true)}
-          placeholder="Начните вводить название..."
+          onChange={e => { setQuery(e.target.value); onChange(null); }}
+          placeholder="Начните вводить название на английском..."
           className="w-full px-3 py-2 pr-8 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:outline-none focus:border-orange-400"
         />
         {loading && (
@@ -89,26 +144,23 @@ function ExerciseNamePicker({ value, onChange }) {
       </div>
 
       {open && results.length > 0 && (
-        <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl shadow-xl max-h-52 overflow-y-auto">
-          {results.map(ex => {
-            const bodyRu = BODY_RU[ex.bodyParts?.[0]] || ex.bodyParts?.[0] || '—';
-            return (
-              <button
-                key={ex.exerciseId}
-                onClick={() => select(ex)}
-                className="w-full text-left px-3 py-2.5 hover:bg-orange-50 dark:hover:bg-orange-900/20 border-b border-gray-100 dark:border-gray-700 last:border-0 transition-colors"
-              >
-                <span className="text-sm text-gray-800 dark:text-gray-100 font-medium">{ex.name}</span>
-                <span className="text-xs text-gray-400 ml-2">— {bodyRu}</span>
-              </button>
-            );
-          })}
+        <div className="absolute z-30 top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl shadow-2xl max-h-56 overflow-y-auto">
+          {results.map(ex => (
+            <button
+              key={ex.exerciseId}
+              onMouseDown={e => { e.preventDefault(); select(ex); }} // mouseDown before blur
+              className="w-full text-left px-3 py-2.5 hover:bg-orange-50 dark:hover:bg-orange-900/20 border-b border-gray-100 dark:border-gray-700 last:border-0 transition-colors"
+            >
+              <span className="text-sm text-gray-800 dark:text-gray-100 font-medium">{ex.name}</span>
+              <span className="text-xs text-gray-400 ml-2">— {BODY_RU[ex.bodyParts?.[0]] || ex.bodyParts?.[0] || '—'}</span>
+            </button>
+          ))}
         </div>
       )}
 
       {open && results.length === 0 && !loading && query.length >= 2 && (
-        <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl shadow-xl px-3 py-3 text-xs text-gray-400 text-center">
-          Ничего не найдено (или все упражнения уже добавлены)
+        <div className="absolute z-30 top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl shadow-xl px-3 py-3 text-xs text-gray-400 text-center">
+          Ничего не найдено или все упражнения уже добавлены
         </div>
       )}
     </div>
@@ -321,10 +373,53 @@ const BLANK_EX = {
 };
 
 function ExerciseForm({ initial = BLANK_EX, onSave, onCancel }) {
-  const [form, setForm] = useState({ ...BLANK_EX, ...initial });
+  const [form, setForm]       = useState({ ...BLANK_EX, ...initial });
   const [tipsText, setTipsText] = useState((initial.tips || []).join('\n'));
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiStatus, setAiStatus]   = useState(''); // '' | 'ok' | 'no_key'
 
   function set(key, val) { setForm(f => ({ ...f, [key]: val })); }
+
+  async function handleExerciseSelect(ex) {
+    if (!ex) return; // cleared
+
+    // 1. Immediately fill structural fields from API data
+    const bp     = ex.bodyParts?.[0] || '';
+    const muscle = (bp === 'upper arms' && ex.targetMuscles?.some(m => /tricep/i.test(m)))
+      ? 'triceps'
+      : BP_TO_MUSCLE[bp] || 'chest';
+    const equip  = EQUIP_MAP[ex.equipments?.[0]?.toLowerCase()] || 'none';
+
+    setForm(f => ({ ...f, nameEn: ex.name, muscle, equipment: equip }));
+    setAiStatus('');
+
+    // 2. Call AI for Russian translation
+    const aiKey = getAdminAiKey();
+    if (!aiKey) {
+      // No key — fill with English instructions as placeholder
+      setForm(f => ({ ...f, description: (ex.instructions || []).slice(0, 2).join(' ') }));
+      setTipsText((ex.instructions || []).slice(2, 5).join('\n'));
+      setAiStatus('no_key');
+      return;
+    }
+
+    setAiLoading(true);
+    try {
+      const text   = await callAiForTranslation(ex, aiKey);
+      const match  = text.match(/\{[\s\S]*\}/);
+      if (match) {
+        const parsed = JSON.parse(match[0]);
+        setForm(f => ({
+          ...f,
+          name:        parsed.name        || f.name,
+          description: parsed.description || '',
+        }));
+        setTipsText((parsed.tips || []).join('\n'));
+        setAiStatus('ok');
+      }
+    } catch {}
+    setAiLoading(false);
+  }
 
   function handleSave() {
     if (!form.name.trim()) return;
@@ -333,23 +428,40 @@ function ExerciseForm({ initial = BLANK_EX, onSave, onCancel }) {
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 space-y-3">
+      {/* Step 1 — pick from API */}
+      <div className="space-y-1">
+        <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+          1. Выберите упражнение из базы — для GIF и автозаполнения
+        </label>
+        <ExerciseNamePicker value={form.nameEn} onChange={handleExerciseSelect} />
+        {aiLoading && (
+          <div className="flex items-center gap-2 text-xs text-orange-400 mt-1">
+            <div className="w-3 h-3 border-2 border-orange-400 border-t-transparent rounded-full animate-spin" />
+            ИИ переводит и заполняет поля...
+          </div>
+        )}
+        {aiStatus === 'ok' && !aiLoading && (
+          <p className="text-xs text-green-500 flex items-center gap-1 mt-1">
+            <Check size={11} /> Поля заполнены автоматически — проверьте и отредактируйте
+          </p>
+        )}
+        {aiStatus === 'no_key' && (
+          <p className="text-xs text-amber-500 mt-1">
+            ИИ-ключ не задан в настройках — заполнено на английском, переведите вручную
+          </p>
+        )}
+      </div>
+
+      <div className="border-t border-gray-100 dark:border-gray-700 pt-3">
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">2. Проверьте и отредактируйте</p>
+      </div>
+
       <div className="grid grid-cols-2 gap-3">
         <div className="col-span-2 space-y-1">
           <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Название (рус.)</label>
           <input type="text" value={form.name} onChange={e => set('name', e.target.value)}
             placeholder="Отжимания" maxLength={60}
             className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:outline-none focus:border-orange-400" />
-        </div>
-        <div className="col-span-2 space-y-1">
-          <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
-            Упражнение из базы — для GIF
-          </label>
-          <ExerciseNamePicker value={form.nameEn} onChange={v => set('nameEn', v)} />
-          {form.nameEn && (
-            <p className="text-xs text-green-500 flex items-center gap-1">
-              <Check size={11} /> Выбрано: <span className="font-medium">{form.nameEn}</span>
-            </p>
-          )}
         </div>
 
         <div className="space-y-1">
@@ -549,35 +661,75 @@ function AdminSettingsTab() {
   const [oldPin, setOldPin] = useState('');
   const [newPin, setNewPin] = useState('');
   const [newPin2, setNewPin2] = useState('');
-  const [msg, setMsg] = useState('');
+  const [pinMsg, setPinMsg] = useState('');
+  const [aiKey, setAiKey]   = useState(() => localStorage.getItem('wd_admin_ai_key') || '');
+  const [aiSaved, setAiSaved] = useState(false);
+  const [showAiKey, setShowAiKey] = useState(false);
 
-  function handleChange() {
-    if (newPin.length !== 4) { setMsg('Новый PIN должен быть 4 цифры'); return; }
-    if (newPin !== newPin2) { setMsg('PIN-коды не совпадают'); return; }
+  function handleChangPin() {
+    if (newPin.length !== 4) { setPinMsg('Новый PIN должен быть 4 цифры'); return; }
+    if (newPin !== newPin2)  { setPinMsg('PIN-коды не совпадают'); return; }
     const ok = changeAdminPin(oldPin, newPin);
-    if (ok) { setMsg('PIN изменён'); setOldPin(''); setNewPin(''); setNewPin2(''); }
-    else setMsg('Неверный текущий PIN');
+    if (ok) { setPinMsg('PIN изменён'); setOldPin(''); setNewPin(''); setNewPin2(''); }
+    else setPinMsg('Неверный текущий PIN');
+  }
+
+  function saveAiKey() {
+    localStorage.setItem('wd_admin_ai_key', aiKey.trim());
+    setAiSaved(true);
+    setTimeout(() => setAiSaved(false), 2000);
   }
 
   return (
     <div className="space-y-4 pb-4">
+      {/* AI key for auto-fill */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 space-y-3">
+        <div>
+          <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">AI-ключ для автозаполнения упражнений</p>
+          <p className="text-xs text-gray-400 mt-0.5">При добавлении упражнения ИИ автоматически переведёт название и описание на русский.</p>
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide">API ключ (DeepSeek / OpenAI / Claude)</label>
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <input
+                type={showAiKey ? 'text' : 'password'}
+                placeholder="sk-... или sk-ant-..."
+                value={aiKey}
+                onChange={e => setAiKey(e.target.value)}
+                className="w-full pr-9 pl-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:outline-none focus:border-orange-400"
+              />
+              <button type="button" onClick={() => setShowAiKey(v => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                {showAiKey ? <EyeOff size={14} /> : <Eye size={14} />}
+              </button>
+            </div>
+            <button onClick={saveAiKey}
+              className="px-4 py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-xl text-sm transition-colors flex items-center gap-1.5 shrink-0">
+              {aiSaved ? <><Check size={14} /> Сохранено</> : <><Save size={14} /> Сохранить</>}
+            </button>
+          </div>
+          <p className="text-xs text-gray-400">Поддерживаются: DeepSeek (sk-), OpenAI (sk-), Claude (sk-ant-), OpenRouter (sk-or-)</p>
+        </div>
+      </div>
+
+      {/* Change admin PIN */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 space-y-3">
         <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">Сменить PIN администратора</p>
 
         {[['Текущий PIN', oldPin, setOldPin], ['Новый PIN', newPin, setNewPin], ['Повторите PIN', newPin2, setNewPin2]].map(([label, val, set]) => (
           <div key={label} className="space-y-1">
             <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide">{label}</label>
-            <input
-              type="password" inputMode="numeric" maxLength={4}
+            <input type="password" inputMode="numeric" maxLength={4}
               value={val} onChange={e => set(e.target.value.replace(/\D/g, '').slice(0, 4))}
               className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:outline-none focus:border-orange-400"
             />
           </div>
         ))}
 
-        {msg && <p className={`text-xs ${msg.includes('изменён') ? 'text-green-500' : 'text-red-400'}`}>{msg}</p>}
+        {pinMsg && <p className={`text-xs ${pinMsg.includes('изменён') ? 'text-green-500' : 'text-red-400'}`}>{pinMsg}</p>}
 
-        <button onClick={handleChange}
+        <button onClick={handleChangPin}
           className="w-full py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-xl text-sm">
           Сохранить
         </button>
