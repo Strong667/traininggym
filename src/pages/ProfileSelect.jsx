@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Dumbbell, Plus, ArrowLeft, Delete, Check, Lock } from 'lucide-react';
+import { Dumbbell, Plus, ArrowLeft, Delete, Lock, ShieldCheck, UserX } from 'lucide-react';
 import { useAuth, PROFILE_COLORS, PROFILE_EMOJIS } from '../context/AuthContext';
+import { useAdmin } from '../context/AdminContext';
 
 // ── Avatar helper ─────────────────────────────────────────────
 export function ProfileAvatar({ profile, size = 48, textSize = 'text-xl' }) {
@@ -77,8 +78,8 @@ function PinScreen({ profile, onBack }) {
     setError(false);
     if (next.length === 4) {
       setTimeout(() => {
-        const ok = login(profile.id, next);
-        if (!ok) { setError(true); setPin(''); }
+        const result = login(profile.id, next);
+        if (result !== 'ok') { setError(true); setPin(''); }
       }, 80);
     }
   }
@@ -241,13 +242,82 @@ function CreateScreen({ onBack, onCreated }) {
   );
 }
 
+// ── Admin access screen ───────────────────────────────────────
+function AdminAccess({ onBack }) {
+  const { adminPinSet, setupAdminPin, verifyAdminPin } = useAuth();
+  const { adminLogin } = useAdmin();
+  const [pin, setPin] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [step, setStep] = useState(adminPinSet ? 'enter' : 'setup'); // 'setup' | 'enter'
+  const [error, setError] = useState('');
+
+  function handleDigit(d) {
+    if (step === 'setup') {
+      if (pin.length < 4) {
+        const next = pin + d;
+        setPin(next);
+        if (next.length === 4) setStep('confirm');
+      }
+    } else if (step === 'confirm') {
+      if (confirm.length < 4) {
+        const next = confirm + d;
+        setConfirm(next);
+        if (next.length === 4) {
+          if (next === pin) { setupAdminPin(pin); adminLogin(); }
+          else { setError('PIN не совпадает. Попробуйте снова.'); setPin(''); setConfirm(''); setStep('setup'); }
+        }
+      }
+    } else {
+      if (pin.length < 4) {
+        const next = pin + d;
+        setPin(next);
+        if (next.length === 4) {
+          setTimeout(() => {
+            if (verifyAdminPin(next)) { adminLogin(); }
+            else { setError('Неверный PIN'); setPin(''); }
+          }, 80);
+        }
+      }
+    }
+  }
+
+  const title = step === 'setup' ? 'Создайте PIN администратора'
+              : step === 'confirm' ? 'Повторите PIN'
+              : 'PIN администратора';
+  const currentPin = step === 'confirm' ? confirm : pin;
+
+  return (
+    <div className="min-h-screen bg-gray-950 flex flex-col items-center px-6 pt-12">
+      <button onClick={onBack} className="self-start text-gray-400 hover:text-white mb-8 flex items-center gap-1">
+        <ArrowLeft size={20} /> Назад
+      </button>
+      <ShieldCheck size={48} className="text-orange-500 mb-4" />
+      <p className="text-white text-xl font-semibold mb-2">{title}</p>
+      {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
+      {!error && <div className="h-5 mb-4" />}
+      <PinDots length={currentPin.length} error={!!error} />
+      <div className="mt-8">
+        <Keypad
+          onDigit={handleDigit}
+          onDelete={() => {
+            setError('');
+            if (step === 'confirm') setConfirm(p => p.slice(0, -1));
+            else setPin(p => p.slice(0, -1));
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
 // ── Main profile select screen ────────────────────────────────
 export default function ProfileSelect() {
   const { profiles, login } = useAuth();
-  const [mode, setMode] = useState('list'); // 'list' | 'pin' | 'create'
+  const [mode, setMode] = useState('list'); // 'list' | 'pin' | 'create' | 'admin'
   const [selectedProfile, setSelectedProfile] = useState(null);
 
   function handleProfileTap(profile) {
+    if (profile.active === false) return; // blocked
     if (profile.pin) {
       setSelectedProfile(profile);
       setMode('pin');
@@ -256,13 +326,9 @@ export default function ProfileSelect() {
     }
   }
 
-  if (mode === 'pin') {
-    return <PinScreen profile={selectedProfile} onBack={() => setMode('list')} />;
-  }
-
-  if (mode === 'create') {
-    return <CreateScreen onBack={() => setMode('list')} />;
-  }
+  if (mode === 'pin')   return <PinScreen profile={selectedProfile} onBack={() => setMode('list')} />;
+  if (mode === 'create') return <CreateScreen onBack={() => setMode('list')} />;
+  if (mode === 'admin')  return <AdminAccess onBack={() => setMode('list')} />;
 
   return (
     <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center px-6">
@@ -276,35 +342,55 @@ export default function ProfileSelect() {
       </p>
 
       <div className="w-full max-w-sm space-y-3">
-        {profiles.map(profile => (
-          <button
-            key={profile.id}
-            onClick={() => handleProfileTap(profile)}
-            className="w-full flex items-center gap-4 p-4 rounded-2xl bg-gray-800 hover:bg-gray-750 active:scale-[0.98] transition-all text-left"
-            style={{ '--tw-bg-opacity': 1 }}
-          >
-            <ProfileAvatar profile={profile} size={52} textSize="text-2xl" />
-            <div className="flex-1 min-w-0">
-              <p className="text-white font-semibold text-base">{profile.name}</p>
-              {profile.pin
-                ? <p className="text-gray-400 text-xs flex items-center gap-1 mt-0.5"><Lock size={10} /> Защищён PIN-кодом</p>
-                : <p className="text-gray-500 text-xs mt-0.5">Нажмите для входа</p>
-              }
-            </div>
-            <div className="text-gray-600 text-lg">›</div>
-          </button>
-        ))}
+        {profiles.map(profile => {
+          const blocked = profile.active === false;
+          return (
+            <button
+              key={profile.id}
+              onClick={() => handleProfileTap(profile)}
+              disabled={blocked}
+              className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all text-left ${blocked ? 'bg-gray-900 opacity-50 cursor-not-allowed' : 'bg-gray-800 hover:bg-gray-700 active:scale-[0.98]'}`}
+            >
+              <div className="relative">
+                <ProfileAvatar profile={profile} size={52} textSize="text-2xl" />
+                {blocked && (
+                  <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center">
+                    <UserX size={18} className="text-white" />
+                  </div>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-white font-semibold text-base">{profile.name}</p>
+                {blocked
+                  ? <p className="text-red-400 text-xs mt-0.5">Заблокирован администратором</p>
+                  : profile.pin
+                  ? <p className="text-gray-400 text-xs flex items-center gap-1 mt-0.5"><Lock size={10} /> Защищён PIN-кодом</p>
+                  : <p className="text-gray-500 text-xs mt-0.5">Нажмите для входа</p>
+                }
+              </div>
+              {!blocked && <div className="text-gray-600 text-lg">›</div>}
+            </button>
+          );
+        })}
 
         <button
           onClick={() => setMode('create')}
           className="w-full flex items-center gap-4 p-4 rounded-2xl border-2 border-dashed border-gray-700 hover:border-orange-500 hover:text-orange-400 active:scale-[0.98] transition-all text-gray-500"
         >
-          <div className="w-13 h-13 rounded-full flex items-center justify-center bg-gray-800" style={{ width: 52, height: 52 }}>
+          <div className="rounded-full flex items-center justify-center bg-gray-800" style={{ width: 52, height: 52 }}>
             <Plus size={22} />
           </div>
           <span className="font-semibold">Добавить профиль</span>
         </button>
       </div>
+
+      {/* Admin access */}
+      <button
+        onClick={() => setMode('admin')}
+        className="mt-8 flex items-center gap-1.5 text-gray-600 hover:text-gray-400 transition-colors text-xs"
+      >
+        <ShieldCheck size={13} /> Вход для администратора
+      </button>
     </div>
   );
 }

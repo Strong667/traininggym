@@ -16,7 +16,7 @@ export const EQUIPMENT_LABELS = {
   gym: 'Тренажёрный зал',
 };
 
-const exercises = [
+export const exercises = [
   // CHEST
   {
     id: 'push-up',

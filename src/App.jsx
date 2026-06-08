@@ -1,8 +1,10 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { AdminProvider, useAdmin } from './context/AdminContext';
 import { AppProvider } from './context/AppContext';
 import NavBar from './components/NavBar';
 import ProfileSelect from './pages/ProfileSelect';
+import AdminPanel from './pages/AdminPanel';
 import Today from './pages/Today';
 import Library from './pages/Library';
 import ExerciseDetail from './pages/ExerciseDetail';
@@ -12,23 +14,23 @@ import Settings from './pages/Settings';
 
 function AppInner() {
   const { activeProfileId } = useAuth();
+  const { isAdminLoggedIn } = useAdmin();
 
-  if (!activeProfileId) {
-    return <ProfileSelect />;
-  }
+  if (isAdminLoggedIn) return <AdminPanel />;
+  if (!activeProfileId)  return <ProfileSelect />;
 
   return (
     <AppProvider>
       <BrowserRouter>
         <div className="min-h-screen bg-gray-50 dark:bg-gray-950 pb-20">
           <Routes>
-            <Route path="/" element={<Today />} />
-            <Route path="/library" element={<Library />} />
+            <Route path="/"            element={<Today />} />
+            <Route path="/library"     element={<Library />} />
             <Route path="/library/:id" element={<ExerciseDetail />} />
-            <Route path="/stats" element={<Stats />} />
-            <Route path="/ai-plan" element={<AIPlan />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="/stats"       element={<Stats />} />
+            <Route path="/ai-plan"     element={<AIPlan />} />
+            <Route path="/settings"    element={<Settings />} />
+            <Route path="*"            element={<Navigate to="/" replace />} />
           </Routes>
           <NavBar />
         </div>
@@ -40,7 +42,9 @@ function AppInner() {
 export default function App() {
   return (
     <AuthProvider>
-      <AppInner />
+      <AdminProvider>
+        <AppInner />
+      </AdminProvider>
     </AuthProvider>
   );
 }
