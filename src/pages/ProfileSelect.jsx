@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Dumbbell, Plus, ArrowLeft, Delete, Lock, ShieldCheck, UserX } from 'lucide-react';
 import { useAuth, PROFILE_COLORS, PROFILE_EMOJIS } from '../context/AuthContext';
 import { useAdmin } from '../context/AdminContext';
@@ -128,14 +128,21 @@ function CreateScreen({ onBack, onCreated }) {
   const [color, setColor] = useState(PROFILE_COLORS[0]);
   const [emoji, setEmoji] = useState(PROFILE_EMOJIS[0]);
   const [pin, setPin] = useState('');
-  const [pinMode, setPinMode] = useState(false); // enter PIN with keypad
   const [step, setStep] = useState('info'); // 'info' | 'pin'
+  const creatingRef = useRef(false); // guard against double-tap creating duplicates
 
   function handleCreate() {
-    if (!name.trim()) return;
-    const profile = createProfile({ name, color, emoji, pin: pin.length === 4 ? pin : '' });
-    login(profile.id);
-    onCreated?.();
+    if (!name.trim() || creatingRef.current) return;
+    creatingRef.current = true;
+    const newPin = pin.length === 4 ? pin : '';
+    const profile = createProfile({ name, color, emoji, pin: newPin });
+    if (newPin) {
+      // Профиль защищён PIN — нельзя войти без ввода кода, уходим на страницу входа
+      onCreated?.();
+    } else {
+      // Без PIN — сразу логиним
+      login(profile.id);
+    }
   }
 
   function handlePinDigit(d) {
@@ -353,7 +360,7 @@ export default function ProfileSelect() {
   }
 
   if (mode === 'pin')   return <PinScreen profile={selectedProfile} onBack={() => setMode('list')} />;
-  if (mode === 'create') return <CreateScreen onBack={() => setMode('list')} />;
+  if (mode === 'create') return <CreateScreen onBack={() => setMode('list')} onCreated={() => setMode('list')} />;
   if (mode === 'admin')  return <AdminAccess onBack={() => setMode('list')} />;
 
   return (
