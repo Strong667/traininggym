@@ -1,13 +1,13 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, CheckCircle, Lightbulb, Loader2, WifiOff } from 'lucide-react';
-import { getExerciseById, MUSCLE_GROUPS, EQUIPMENT_LABELS, formatSetsReps } from '../data/exercises';
+import { ArrowLeft, CheckCircle, Lightbulb, Loader2, WifiOff, Image } from 'lucide-react';
+import { MUSCLE_GROUPS, EQUIPMENT_LABELS, formatSetsReps } from '../data/exercises';
 import useExerciseGif from '../hooks/useExerciseGif';
-import { Image } from 'lucide-react';
+import { useExerciseById } from '../hooks/useAllExercises';
 
 export default function ExerciseDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const exercise = getExerciseById(id);
+  const exercise = useExerciseById(id);
 
   if (!exercise) {
     return (

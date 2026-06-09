@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import { Search, SlidersHorizontal } from 'lucide-react';
-import exercises, { MUSCLE_GROUPS, EQUIPMENT_LABELS } from '../data/exercises';
+import { MUSCLE_GROUPS, EQUIPMENT_LABELS } from '../data/exercises';
 import ExerciseCard from '../components/ExerciseCard';
+import { useAllExercises } from '../hooks/useAllExercises';
 
 const EQUIPMENT_OPTIONS = [
   { value: 'all', label: 'Всё' },
@@ -15,15 +16,19 @@ export default function Library() {
   const [equipFilter, setEquipFilter] = useState('all');
   const [muscleFilter, setMuscleFilter] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
+  const allExercises = useAllExercises();
 
   const filtered = useMemo(() => {
-    return exercises.filter(ex => {
-      const matchSearch = !search || ex.name.toLowerCase().includes(search.toLowerCase());
+    const q = search.toLowerCase();
+    return allExercises.filter(ex => {
+      const matchSearch = !search
+        || ex.name.toLowerCase().includes(q)
+        || (ex.nameEn && ex.nameEn.toLowerCase().includes(q));
       const matchEquip = equipFilter === 'all' || ex.equipment === equipFilter;
       const matchMuscle = muscleFilter === 'all' || ex.muscle === muscleFilter;
       return matchSearch && matchEquip && matchMuscle;
     });
-  }, [search, equipFilter, muscleFilter]);
+  }, [allExercises, search, equipFilter, muscleFilter]);
 
   const grouped = useMemo(() => {
     const groups = {};
