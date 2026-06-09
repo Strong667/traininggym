@@ -29,8 +29,19 @@ export function AppProvider({ children }) {
 
   useEffect(() => {
     const root = document.documentElement;
-    if (theme === 'dark') root.classList.add('dark');
+    const dark = theme === 'dark';
+    if (dark) root.classList.add('dark');
     else root.classList.remove('dark');
+
+    // Цвет статус-бара / chrome PWA следует за темой
+    const color = dark ? '#0f172a' : '#ffffff';
+    let meta = document.querySelector('meta[name="theme-color"]');
+    if (!meta) {
+      meta = document.createElement('meta');
+      meta.name = 'theme-color';
+      document.head.appendChild(meta);
+    }
+    meta.setAttribute('content', color);
   }, [theme]);
 
   function todayKey() {
