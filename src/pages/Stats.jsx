@@ -9,15 +9,6 @@ export default function Stats() {
   const totalWorkouts = getTotalWorkouts();
   const totalExercises = getTotalExercisesDone();
 
-  const dayLabels = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
-
-  // 4-week heatmap (28 days)
-  const heatmap = Array.from({ length: 28 }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() - (27 - i));
-    return d;
-  });
-
   return (
     <div className="max-w-lg mx-auto px-4 pt-6 pb-4 space-y-5">
       <h1 className="text-xl font-bold text-gray-900 dark:text-white">Статистика</h1>
@@ -51,7 +42,7 @@ export default function Stats() {
 
       <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-100 dark:border-gray-700">
         <h2 className="font-semibold text-gray-800 dark:text-white mb-4">Активность за месяц</h2>
-        <HeatmapGrid days={heatmap} />
+        <HeatmapGrid />
       </div>
     </div>
   );
@@ -67,33 +58,54 @@ function StatCard({ icon, label, value, unit, bg }) {
   );
 }
 
-function HeatmapGrid({ days }) {
+const MONTH_NAMES = ['Январь','Февраль','Март','Апрель','Май','Июнь',
+  'Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+const DAY_LABELS = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+
+function HeatmapGrid() {
   const { doneByDate } = useApp();
-  const weeks = [];
-  for (let i = 0; i < days.length; i += 7) {
-    weeks.push(days.slice(i, i + 7));
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+
+  const firstDay = new Date(year, month, 1);
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const startOffset = (firstDay.getDay() + 6) % 7; // Пн=0 ... Вс=6
+  const todayKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+  const cells = [];
+  for (let i = 0; i < startOffset; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) {
+    const key = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    cells.push({ day: d, key, done: !!doneByDate[key], isToday: key === todayKey });
   }
+  while (cells.length % 7 !== 0) cells.push(null);
 
   return (
-    <div className="flex gap-1.5">
-      {weeks.map((week, wi) => (
-        <div key={wi} className="flex flex-col gap-1.5">
-          {week.map((d, di) => {
-            const key = d.toISOString().slice(0, 10);
-            const done = !!doneByDate[key];
-            const isToday = key === new Date().toISOString().slice(0, 10);
-            return (
-              <div
-                key={di}
-                title={`${key}${done ? ' ✓' : ''}`}
-                className={`w-8 h-8 rounded-md transition-colors ${
-                  done ? 'bg-orange-500' : 'bg-gray-100 dark:bg-gray-700'
-                } ${isToday ? 'ring-2 ring-orange-400 ring-offset-1 dark:ring-offset-gray-800' : ''}`}
-              />
-            );
-          })}
-        </div>
-      ))}
-    </div>
+    <>
+      <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">{MONTH_NAMES[month]} {year}</p>
+      <div className="grid grid-cols-7 gap-1.5">
+        {DAY_LABELS.map(d => (
+          <div key={d} className="text-center text-[10px] text-gray-400 dark:text-gray-500 font-medium pb-0.5">{d}</div>
+        ))}
+        {cells.map((cell, i) =>
+          cell ? (
+            <div
+              key={i}
+              title={`${cell.key}${cell.done ? ' ✓' : ''}`}
+              className={`aspect-square rounded-lg flex items-center justify-center text-[11px] font-semibold transition-colors ${
+                cell.done
+                  ? 'bg-orange-500 text-white'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500'
+              } ${cell.isToday ? 'ring-2 ring-orange-400 ring-offset-1 dark:ring-offset-gray-800' : ''}`}
+            >
+              {cell.day}
+            </div>
+          ) : (
+            <div key={i} />
+          )
+        )}
+      </div>
+    </>
   );
 }
