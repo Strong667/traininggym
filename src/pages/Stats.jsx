@@ -33,7 +33,7 @@ export default function Stats() {
                 {day.date.getDate()}
               </div>
               <span className="text-[9px] text-gray-300 dark:text-gray-600">
-                {dayLabels[day.date.getDay() === 0 ? 6 : day.date.getDay() - 1]}
+                {DAY_LABELS[day.date.getDay() === 0 ? 6 : day.date.getDay() - 1]}
               </span>
             </div>
           ))}
