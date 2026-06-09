@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Flame, Dumbbell, CheckSquare, TrendingUp } from 'lucide-react';
+import { Flame, Dumbbell, CheckSquare, TrendingUp, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function Stats() {
   const { getStreak, getLast14Days, getTotalWorkouts, getTotalExercisesDone } = useApp();
@@ -65,13 +66,23 @@ const DAY_LABELS = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
 function HeatmapGrid() {
   const { doneByDate } = useApp();
   const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth();
+  const [view, setView] = useState({ year: now.getFullYear(), month: now.getMonth() });
+  const { year, month } = view;
 
   const firstDay = new Date(year, month, 1);
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const startOffset = (firstDay.getDay() + 6) % 7; // Пн=0 ... Вс=6
-  const todayKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+  // Запрет на навигацию в будущее (нет данных)
+  const isCurrentMonth = year === now.getFullYear() && month === now.getMonth();
+
+  function shift(delta) {
+    setView(({ year, month }) => {
+      const d = new Date(year, month + delta, 1);
+      return { year: d.getFullYear(), month: d.getMonth() };
+    });
+  }
 
   const cells = [];
   for (let i = 0; i < startOffset; i++) cells.push(null);
@@ -83,7 +94,24 @@ function HeatmapGrid() {
 
   return (
     <>
-      <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">{MONTH_NAMES[month]} {year}</p>
+      <div className="flex items-center justify-between mb-3">
+        <button
+          onClick={() => shift(-1)}
+          className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          aria-label="Предыдущий месяц"
+        >
+          <ChevronLeft size={18} />
+        </button>
+        <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{MONTH_NAMES[month]} {year}</p>
+        <button
+          onClick={() => shift(1)}
+          disabled={isCurrentMonth}
+          className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-gray-400"
+          aria-label="Следующий месяц"
+        >
+          <ChevronRight size={18} />
+        </button>
+      </div>
       <div className="grid grid-cols-7 gap-1.5">
         {DAY_LABELS.map(d => (
           <div key={d} className="text-center text-[10px] text-gray-400 dark:text-gray-500 font-medium pb-0.5">{d}</div>
