@@ -22,7 +22,7 @@ export default function ExerciseDetail() {
 
   return (
     <div className="max-w-lg mx-auto pb-8">
-      <div className="sticky top-0 z-10 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 px-4 py-3 flex items-center gap-3">
+      <div className="sticky top-0 z-10 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 px-4 pb-3 pt-bar flex items-center gap-3">
         <button onClick={() => navigate(-1)} className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
           <ArrowLeft size={22} />
         </button>

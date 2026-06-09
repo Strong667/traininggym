@@ -50,7 +50,7 @@ export default function Settings() {
   }
 
   return (
-    <div className="max-w-lg mx-auto px-4 pt-6 pb-4 space-y-5">
+    <div className="max-w-lg mx-auto px-4 pt-screen pb-4 space-y-5">
       <h1 className="text-xl font-bold text-gray-900 dark:text-white">Настройки</h1>
 
       {/* Profile section */}

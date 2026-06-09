@@ -151,7 +151,7 @@ export default function AIPlan() {
   const activePlan = customPlan || defaultPlan;
 
   return (
-    <div className="max-w-lg mx-auto px-4 pt-6 pb-4 space-y-5">
+    <div className="max-w-lg mx-auto px-4 pt-screen pb-4 space-y-5">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
           <Sparkles size={22} className="text-orange-500" /> AI-план тренировок

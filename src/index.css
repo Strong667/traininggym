@@ -19,7 +19,22 @@
 }
 
 @layer utilities {
-  .safe-b {
-    padding-bottom: env(safe-area-inset-bottom);
-  }
+  /* ── iOS safe-area helpers (edge-to-edge PWA, viewport-fit=cover) ──
+     max() keeps the original spacing on devices без чёлки (inset = 0). */
+
+  /* raw insets */
+  .pt-safe { padding-top: env(safe-area-inset-top); }
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+
+  /* top of a scrolling screen — было pt-6 (1.5rem) */
+  .pt-screen { padding-top: max(1.5rem, calc(env(safe-area-inset-top) + 0.5rem)); }
+
+  /* sticky / fixed top bar — было py-3 top (0.75rem); bar bg заполняет чёлку */
+  .pt-bar { padding-top: max(0.75rem, calc(env(safe-area-inset-top) + 0.5rem)); }
+
+  /* bottom of a screen above the home indicator */
+  .pb-screen { padding-bottom: max(1.5rem, calc(env(safe-area-inset-bottom) + 0.5rem)); }
+
+  /* page wrapper bottom — место под фиксированный NavBar + home indicator */
+  .pb-nav { padding-bottom: calc(5rem + env(safe-area-inset-bottom)); }
 }

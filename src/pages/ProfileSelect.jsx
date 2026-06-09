@@ -92,7 +92,7 @@ function PinScreen({ profile, onBack }) {
   return (
     <div className="min-h-screen bg-gray-950 flex flex-col">
       {/* Back */}
-      <div className="px-5 pt-14 pb-2">
+      <div className="px-5 pt-screen pb-2">
         <button onClick={onBack} className="flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors text-sm">
           <ArrowLeft size={18} /> Назад
         </button>
@@ -154,7 +154,7 @@ function CreateScreen({ onBack, onCreated }) {
   if (step === 'pin') {
     return (
       <div className="min-h-screen bg-gray-950 flex flex-col">
-        <div className="px-5 pt-14 pb-2">
+        <div className="px-5 pt-screen pb-2">
           <button onClick={() => { setStep('info'); setPin(''); }} className="flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors text-sm">
             <ArrowLeft size={18} /> Назад
           </button>
@@ -174,7 +174,7 @@ function CreateScreen({ onBack, onCreated }) {
           </div>
         </div>
 
-        <div className="px-8 pb-6 max-w-sm w-full mx-auto space-y-4">
+        <div className="px-8 pb-screen max-w-sm w-full mx-auto space-y-4">
           <Keypad onDigit={handlePinDigit} onDelete={() => setPin(p => p.slice(0, -1))} />
           <button
             onClick={handleCreate}
@@ -190,7 +190,7 @@ function CreateScreen({ onBack, onCreated }) {
 
   // Step: info
   return (
-    <div className="min-h-screen bg-gray-950 flex flex-col px-6 pt-12 pb-8">
+    <div className="min-h-screen bg-gray-950 flex flex-col px-6 pt-screen pb-screen">
       <button onClick={onBack} className="self-start text-gray-400 hover:text-white mb-8 flex items-center gap-1">
         <ArrowLeft size={20} /> Назад
       </button>
@@ -309,7 +309,7 @@ function AdminAccess({ onBack }) {
 
   return (
     <div className="min-h-screen bg-gray-950 flex flex-col">
-      <div className="px-5 pt-14 pb-2">
+      <div className="px-5 pt-screen pb-2">
         <button onClick={onBack} className="flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors text-sm">
           <ArrowLeft size={18} /> Назад
         </button>
@@ -364,7 +364,7 @@ export default function ProfileSelect() {
   if (mode === 'admin')  return <AdminAccess onBack={() => setMode('list')} />;
 
   return (
-    <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center px-6">
+    <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center px-6 pt-safe pb-safe">
       {/* Logo */}
       <div className="flex items-center gap-2.5 mb-3">
         <Dumbbell size={30} className="text-orange-500" />

@@ -40,7 +40,7 @@ export default function Library() {
   }, [filtered]);
 
   return (
-    <div className="max-w-lg mx-auto px-4 pt-6 pb-4 space-y-4">
+    <div className="max-w-lg mx-auto px-4 pt-screen pb-4 space-y-4">
       <h1 className="text-xl font-bold text-gray-900 dark:text-white">Библиотека упражнений</h1>
 
       <div className="flex gap-2">

@@ -41,7 +41,7 @@ export default function Today() {
   const allDone = doneCount === total && total > 0;
 
   return (
-    <div className="max-w-lg mx-auto px-4 pt-6 pb-4 space-y-4">
+    <div className="max-w-lg mx-auto px-4 pt-screen pb-4 space-y-4">
       <div className="flex items-start justify-between">
         <div>
           <p className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wider">{dateLabel}</p>

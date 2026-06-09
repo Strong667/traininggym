@@ -22,7 +22,7 @@ function AppInner() {
   return (
     <AppProvider>
       <BrowserRouter>
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-950 pb-20">
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-950 pb-nav">
           <Routes>
             <Route path="/"            element={<Today />} />
             <Route path="/library"     element={<Library />} />
