@@ -1,25 +1,28 @@
 import { useState, useEffect, useRef } from 'react';
-import { Music, Play, Pause, SkipForward, SkipBack, X, Search, Loader2, Disc3 } from 'lucide-react';
+import { Music, Play, Pause, SkipForward, SkipBack, X, Search, Loader2, Disc3, Volume2, VolumeX } from 'lucide-react';
 import { useMusic } from '../context/MusicContext';
 import { searchTracks, MUSIC_PRESETS, formatTime } from '../lib/audius';
 
-// Позиция над фиксированным NavBar (учитывая home indicator)
-const ABOVE_NAV = 'calc(3.5rem + env(safe-area-inset-bottom))';
+// Позиции над фиксированным NavBar (учитывая home indicator).
+// FAB заметно выше панели, чтобы не сливался с навбаром.
+const MINI_BOTTOM = 'calc(4.25rem + env(safe-area-inset-bottom))';
+const FAB_BOTTOM  = 'calc(5.5rem + env(safe-area-inset-bottom))';
+
+const IS_IOS = typeof navigator !== 'undefined' && /iP(hone|ad|od)/.test(navigator.userAgent);
 
 export default function MusicPlayer() {
-  const { current, isPlaying, toggle, next, prev, progress, playAt, queue, index, seek } = useMusic();
-  const [open, setOpen] = useState(false);
+  const { current, isPlaying, toggle, next, prev, progress, queue, index, sheetOpen, openSheet, closeSheet } = useMusic();
 
   return (
     <>
       {/* Выезжающая панель поиска/списка */}
-      {open && <MusicSheet onClose={() => setOpen(false)} />}
+      {sheetOpen && <MusicSheet onClose={closeSheet} />}
 
       {/* Мини-плеер (когда есть трек) */}
-      {current && !open && (
+      {current && !sheetOpen && (
         <div
           className="fixed left-0 right-0 z-40 px-3"
-          style={{ bottom: ABOVE_NAV }}
+          style={{ bottom: MINI_BOTTOM }}
         >
           <div className="max-w-lg mx-auto bg-white/95 dark:bg-gray-800/95 backdrop-blur border border-gray-200 dark:border-gray-700 rounded-2xl shadow-lg overflow-hidden">
             {/* прогресс-полоса */}
@@ -30,12 +33,12 @@ export default function MusicPlayer() {
               />
             </div>
             <div className="flex items-center gap-3 px-3 py-2">
-              <button onClick={() => setOpen(true)} className="shrink-0">
+              <button onClick={openSheet} className="shrink-0">
                 {current.artwork
                   ? <img src={current.artwork} alt="" className="w-10 h-10 rounded-lg object-cover" />
                   : <div className="w-10 h-10 rounded-lg bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center"><Music size={18} className="text-orange-500" /></div>}
               </button>
-              <button onClick={() => setOpen(true)} className="flex-1 min-w-0 text-left">
+              <button onClick={openSheet} className="flex-1 min-w-0 text-left">
                 <p className="text-sm font-semibold text-gray-800 dark:text-white truncate">{current.title}</p>
                 <p className="text-xs text-gray-400 truncate">{current.artist}</p>
               </button>
@@ -57,14 +60,14 @@ export default function MusicPlayer() {
       )}
 
       {/* FAB — открыть музыку, когда ничего не играет */}
-      {!current && !open && (
+      {!current && !sheetOpen && (
         <button
-          onClick={() => setOpen(true)}
-          className="fixed right-4 z-40 w-12 h-12 bg-orange-500 hover:bg-orange-600 text-white rounded-full shadow-lg flex items-center justify-center active:scale-95 transition-transform"
-          style={{ bottom: ABOVE_NAV }}
+          onClick={openSheet}
+          className="fixed right-4 z-40 w-14 h-14 bg-orange-500 hover:bg-orange-600 text-white rounded-full shadow-xl shadow-orange-500/30 flex items-center justify-center active:scale-95 transition-transform"
+          style={{ bottom: FAB_BOTTOM }}
           aria-label="Музыка"
         >
-          <Music size={20} />
+          <Music size={22} />
         </button>
       )}
     </>
@@ -72,7 +75,7 @@ export default function MusicPlayer() {
 }
 
 function MusicSheet({ onClose }) {
-  const { playAt, current, isPlaying, toggle } = useMusic();
+  const { playAt, current, isPlaying, toggle, progress, seek, volume, setVolume } = useMusic();
   const [query, setQuery]     = useState('');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -194,7 +197,7 @@ function MusicSheet({ onClose }) {
 
       {/* Нижняя плашка текущего трека внутри панели */}
       {current && (
-        <div className="border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-3 pb-safe">
+        <div className="border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-3 pb-safe space-y-2.5">
           <div className="max-w-lg mx-auto flex items-center gap-3">
             {current.artwork
               ? <img src={current.artwork} alt="" className="w-11 h-11 rounded-lg object-cover" />
@@ -207,6 +210,41 @@ function MusicSheet({ onClose }) {
               {isPlaying ? <Pause size={20} /> : <Play size={20} className="translate-x-0.5" />}
             </button>
           </div>
+
+          {/* Перемотка */}
+          <div className="max-w-lg mx-auto flex items-center gap-2">
+            <span className="text-[10px] text-gray-400 tabular-nums w-9 text-right">{formatTime(progress.time)}</span>
+            <input
+              type="range"
+              min={0}
+              max={progress.duration || 0}
+              step="any"
+              value={Math.min(progress.time, progress.duration || 0)}
+              onChange={e => seek(Number(e.target.value))}
+              className="flex-1 accent-orange-500 h-1 cursor-pointer"
+              aria-label="Перемотка"
+            />
+            <span className="text-[10px] text-gray-400 tabular-nums w-9">{formatTime(progress.duration)}</span>
+          </div>
+
+          {/* Громкость (на iOS управляется только аппаратными кнопками) */}
+          {!IS_IOS && (
+            <div className="max-w-lg mx-auto flex items-center gap-2">
+              <button onClick={() => setVolume(volume > 0 ? 0 : 1)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                {volume > 0 ? <Volume2 size={16} /> : <VolumeX size={16} />}
+              </button>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step="0.01"
+                value={volume}
+                onChange={e => setVolume(Number(e.target.value))}
+                className="flex-1 accent-orange-500 h-1 cursor-pointer"
+                aria-label="Громкость"
+              />
+            </div>
+          )}
         </div>
       )}
     </div>

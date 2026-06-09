@@ -14,8 +14,18 @@ export function MusicProvider({ children }) {
   const [index, setIndex]         = useState(-1);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress]   = useState({ time: 0, duration: 0 });
+  const [volume, setVolumeState]  = useState(1);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   const current = index >= 0 ? queue[index] : null;
+
+  function setVolume(v) {
+    const a = audioRef.current;
+    if (a) a.volume = v;
+    setVolumeState(v);
+  }
+  function openSheet()  { setSheetOpen(true); }
+  function closeSheet() { setSheetOpen(false); }
 
   function playAt(q, i) {
     const a = audioRef.current;
@@ -74,8 +84,9 @@ export function MusicProvider({ children }) {
 
   return (
     <MusicContext.Provider value={{
-      queue, index, current, isPlaying, progress,
-      playAt, toggle, next, prev, seek,
+      queue, index, current, isPlaying, progress, volume,
+      playAt, toggle, next, prev, seek, setVolume,
+      sheetOpen, openSheet, closeSheet,
     }}>
       {children}
     </MusicContext.Provider>
