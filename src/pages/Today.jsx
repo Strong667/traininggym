@@ -1,7 +1,6 @@
 import { useNavigate } from 'react-router-dom';
-import { Flame, Music, Play, Pause } from 'lucide-react';
+import { Flame } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { useMusic } from '../context/MusicContext';
 import { getExerciseById } from '../data/exercises';
 import defaultPlan from '../data/workoutPlan';
 import { getTodayDayIndex, DAY_NAMES } from '../data/workoutPlan';
@@ -13,7 +12,6 @@ import RestTimer from '../components/RestTimer';
 export default function Today() {
   const navigate = useNavigate();
   const { toggleExercise, isExerciseDone, getDoneExerciseIds, isDayDone, markDayDone, getStreak, todayKey, customPlan } = useApp();
-  const { openSheet, current, isPlaying, toggle } = useMusic();
 
   const plan = customPlan || defaultPlan;
   const todayIndex = getTodayDayIndex();
@@ -68,37 +66,6 @@ export default function Today() {
       <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-100 dark:border-gray-700">
         <ProgressBar done={doneCount} total={total} />
       </div>
-
-      {/* Музыка для тренировки */}
-      <button
-        onClick={openSheet}
-        className="w-full flex items-center gap-3 bg-gradient-to-r from-orange-500/10 to-orange-400/5 hover:from-orange-500/15 border border-orange-200/60 dark:border-orange-900/40 rounded-2xl p-4 transition-colors active:scale-[0.99]"
-      >
-        <div className="w-11 h-11 rounded-xl bg-orange-500 text-white flex items-center justify-center shrink-0">
-          {current && isPlaying ? <Pause size={20} /> : <Music size={20} />}
-        </div>
-        <div className="flex-1 min-w-0 text-left">
-          {current ? (
-            <>
-              <p className="text-sm font-semibold text-gray-800 dark:text-white truncate">{current.title}</p>
-              <p className="text-xs text-gray-400 truncate">{current.artist}</p>
-            </>
-          ) : (
-            <>
-              <p className="text-sm font-semibold text-gray-800 dark:text-white">Музыка для тренировки</p>
-              <p className="text-xs text-gray-400">Включи трек и погнали 🎧</p>
-            </>
-          )}
-        </div>
-        {current && (
-          <span
-            onClick={(e) => { e.stopPropagation(); toggle(); }}
-            className="p-2 text-orange-500 shrink-0"
-          >
-            {isPlaying ? <Pause size={20} /> : <Play size={20} className="translate-x-0.5" />}
-          </span>
-        )}
-      </button>
 
       {allDone && (
         <div className="text-center bg-green-500/10 border border-green-500/20 rounded-2xl py-3 px-4">

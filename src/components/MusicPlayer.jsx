@@ -7,6 +7,8 @@ import { searchTracks, MUSIC_PRESETS, formatTime } from '../lib/audius';
 // FAB заметно выше панели, чтобы не сливался с навбаром.
 const MINI_BOTTOM = 'calc(4.25rem + env(safe-area-inset-bottom))';
 const FAB_BOTTOM  = 'calc(5.5rem + env(safe-area-inset-bottom))';
+// Высота NavBar — панель музыки заканчивается над ним, навбар остаётся видим
+const NAV_H = 'calc(3.25rem + env(safe-area-inset-bottom))';
 
 const IS_IOS = typeof navigator !== 'undefined' && /iP(hone|ad|od)/.test(navigator.userAgent);
 
@@ -108,7 +110,7 @@ function MusicSheet({ onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-gray-50 dark:bg-gray-950">
+    <div className="fixed inset-0 z-40 flex flex-col bg-gray-50 dark:bg-gray-950" style={{ paddingBottom: NAV_H }}>
       {/* Header */}
       <div className="px-4 pt-bar pb-3 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
         <div className="max-w-lg mx-auto flex items-center gap-3">
@@ -197,7 +199,7 @@ function MusicSheet({ onClose }) {
 
       {/* Нижняя плашка текущего трека внутри панели */}
       {current && (
-        <div className="border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-3 pb-safe space-y-2.5">
+        <div className="border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-3 space-y-2.5">
           <div className="max-w-lg mx-auto flex items-center gap-3">
             {current.artwork
               ? <img src={current.artwork} alt="" className="w-11 h-11 rounded-lg object-cover" />
